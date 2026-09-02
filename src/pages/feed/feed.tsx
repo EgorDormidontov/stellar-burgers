@@ -3,12 +3,13 @@ import { Preloader } from '@ui';
 import { FeedUI } from '@ui-pages';
 import { useDispatch, useSelector } from '../../services/store';
 import { fetchFeed } from '../../services/slices/feedSlice';
+import { selectFeed } from '../../services/selectors';
 
 const REFRESH_INTERVAL = 5000;
 
 export const Feed: FC = () => {
   const dispatch = useDispatch();
-  const { orders, isLoading, error } = useSelector((state) => state.feed);
+  const { orders, isLoading, error } = useSelector(selectFeed);
 
   const handleGetFeeds = () => {
     dispatch(fetchFeed());

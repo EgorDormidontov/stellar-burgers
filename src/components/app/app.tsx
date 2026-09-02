@@ -31,6 +31,7 @@ import { Preloader } from '@ui';
 import { useDispatch, useSelector } from '../../services/store';
 import { fetchIngredients } from '../../services/slices/ingredientsSlice';
 import { checkUserAuth } from '../../services/slices/userSlice';
+import { selectIngredientsState } from '../../services/selectors';
 import '../../index.css';
 import styles from './app.module.css';
 
@@ -63,7 +64,7 @@ const App: FC = () => {
     location.state as { background?: Location } | null
   )?.background;
 
-  const { isLoading, error, items } = useSelector((state) => state.ingredients);
+  const { isLoading, error, items } = useSelector(selectIngredientsState);
 
   useEffect(() => {
     dispatch(fetchIngredients());

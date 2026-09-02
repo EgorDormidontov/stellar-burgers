@@ -9,14 +9,18 @@ import {
 } from '../../services/slices/constructorSlice';
 import { fetchFeed } from '../../services/slices/feedSlice';
 import { fetchUserOrders } from '../../services/slices/ordersSlice';
+import {
+  selectConstructor,
+  selectIsAuthenticated
+} from '../../services/selectors';
 
 export const BurgerConstructor: FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const constructorItems = useSelector((state) => state.burgerConstructor);
-  const isAuthenticated = useSelector((state) => state.user.isAuthenticated);
+  const constructorItems = useSelector(selectConstructor);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
   const { orderRequest, orderModalData } = constructorItems;
 
   const onOrderClick = () => {

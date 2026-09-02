@@ -3,12 +3,13 @@ import { Location, useLocation, useNavigate } from 'react-router-dom';
 import { LoginUI } from '@ui-pages';
 import { useDispatch, useSelector } from '../../services/store';
 import { loginUser } from '../../services/slices/userSlice';
+import { selectUserError } from '../../services/selectors';
 
 export const Login: FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const error = useSelector((state) => state.user.error);
+  const error = useSelector(selectUserError);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

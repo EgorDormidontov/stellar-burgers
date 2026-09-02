@@ -3,10 +3,11 @@ import { useParams } from 'react-router-dom';
 import { Preloader } from '../ui/preloader';
 import { IngredientDetailsUI } from '../ui/ingredient-details';
 import { useSelector } from '../../services/store';
+import { selectIngredientsState } from '../../services/selectors';
 
 export const IngredientDetails: FC = () => {
   const { id } = useParams();
-  const { items, isLoading } = useSelector((state) => state.ingredients);
+  const { items, isLoading } = useSelector(selectIngredientsState);
   const ingredientData = items.find((item) => item._id === id);
 
   if (isLoading && !ingredientData) {

@@ -8,16 +8,16 @@ import {
   clearCurrentOrder,
   fetchOrderByNumber
 } from '../../services/slices/currentOrderSlice';
+import {
+  selectCurrentOrder,
+  selectIngredients
+} from '../../services/selectors';
 
 export const OrderInfo: FC = () => {
   const { number } = useParams();
   const dispatch = useDispatch();
-  const {
-    data: orderData,
-    isLoading,
-    error
-  } = useSelector((state) => state.currentOrder);
-  const ingredients = useSelector((state) => state.ingredients.items);
+  const { data: orderData, isLoading, error } = useSelector(selectCurrentOrder);
+  const ingredients = useSelector(selectIngredients);
 
   useEffect(() => {
     const orderNumber = Number(number);
