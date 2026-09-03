@@ -1,84 +1,42 @@
-import fs from 'fs';
 import path from 'path';
 import { expect, Page, test } from '@playwright/test';
-
 import {
-  emptyFeedResponse,
+  expectedOrderNumber,
+  expectedUserName,
   mockBun,
-  mockMain,
-  mockOrderResponse,
-  mockUserResponse
+  mockMain
 } from './fixtures/mock-data';
 
-const ingredientsHar = path.join(
-  process.cwd(),
-  'tests',
-  'fixtures',
-  'ingredients.har'
-);
-
-type THar = {
-  log: {
-    entries: Array<{
-      response: {
-        content: {
-          text: string;
-        };
-      };
-    }>;
-  };
-};
-
-const harData = JSON.parse(fs.readFileSync(ingredientsHar, 'utf-8')) as THar;
-
-const ingredientsResponse = JSON.parse(
-  harData.log.entries[0].response.content.text
-);
-
-const mockIngredientsRequest = async (page: Page) => {
-  await page.route('**/ingredients', async (route) => {
-    if (route.request().method() !== 'GET') {
-      await route.continue();
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(ingredientsResponse)
-    });
-  });
-};
+const harPath = (fileName: string) =>
+  path.join(process.cwd(), 'tests', 'hars', fileName);
 
 const addIngredient = async (page: Page, ingredientId: string) => {
   const ingredient = page.getByTestId(`ingredient-${ingredientId}`);
 
   await expect(ingredient).toBeVisible();
+  await ingredient.getByRole('button', { name: 'Добавить' }).click();
+};
 
-  await ingredient
-    .getByRole('button', {
-      name: 'Добавить'
-    })
-    .click();
+const useIngredientsHar = async (page: Page) => {
+  await page.routeFromHAR(harPath('ingredients.har'), {
+    url: '**/api/ingredients'
+  });
 };
 
 test.beforeEach(async ({ page }) => {
-  await mockIngredientsRequest(page);
+  await useIngredientsHar(page);
 });
 
 test('добавляет булку и начинку в конструктор', async ({ page }) => {
   await page.goto('/');
 
   await addIngredient(page, mockBun._id);
-
   await addIngredient(page, mockMain._id);
 
   const constructor = page.getByTestId('burger-constructor');
 
   await expect(constructor).toContainText(`${mockBun.name} (верх)`);
-
   await expect(constructor).toContainText(`${mockBun.name} (низ)`);
-
   await expect(constructor).toContainText(mockMain.name);
 });
 
@@ -90,23 +48,28 @@ test('открывает модальное окно ингредиента и �
   const ingredientLink = page.getByTestId(`ingredient-link-${mockBun._id}`);
 
   await expect(ingredientLink).toBeVisible();
-
   await ingredientLink.click();
 
   const modal = page.getByTestId('modal');
 
   await expect(modal).toBeVisible();
-
   await expect(modal).toContainText('Детали ингредиента');
-
   await expect(modal).toContainText(mockBun.name);
+
+  await expect(modal).toContainText('Калории, ккал');
+  await expect(modal).toContainText(String(mockBun.calories));
+  await expect(modal).toContainText('Белки, г');
+  await expect(modal).toContainText(String(mockBun.proteins));
+  await expect(modal).toContainText('Жиры, г');
+  await expect(modal).toContainText(String(mockBun.fat));
+  await expect(modal).toContainText('Углеводы, г');
+  await expect(modal).toContainText(String(mockBun.carbohydrates));
 
   await expect(page).toHaveURL(new RegExp(`/ingredients/${mockBun._id}$`));
 
   await page.getByTestId('modal-close').click();
 
   await expect(modal).not.toBeVisible();
-
   await expect(page).toHaveURL('/');
 });
 
@@ -116,22 +79,15 @@ test('закрывает модальное окно ингредиента по
   const ingredientLink = page.getByTestId(`ingredient-link-${mockMain._id}`);
 
   await expect(ingredientLink).toBeVisible();
-
   await ingredientLink.click();
 
   const modal = page.getByTestId('modal');
 
   await expect(modal).toBeVisible();
 
-  await page.getByTestId('modal-overlay').click({
-    position: {
-      x: 5,
-      y: 5
-    }
-  });
+  await page.getByTestId('modal-overlay').click({ position: { x: 5, y: 5 } });
 
   await expect(modal).not.toBeVisible();
-
   await expect(page).toHaveURL('/');
 });
 
@@ -140,94 +96,57 @@ test('создаёт заказ, показывает его номер и оч�
 }) => {
   await page.addInitScript(() => {
     document.cookie = 'accessToken=Bearer%20mock-access-token; path=/';
-
     window.localStorage.setItem('refreshToken', 'mock-refresh-token');
   });
 
-  let userRequestCalled = false;
-
-  await page.route('**/auth/user', async (route) => {
-    userRequestCalled = true;
-
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(mockUserResponse)
-    });
+  await page.routeFromHAR(harPath('user.har'), {
+    url: '**/api/auth/user'
   });
 
-  await page.route('**/orders/all', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(emptyFeedResponse)
-    });
+  await page.routeFromHAR(harPath('feed.har'), {
+    url: '**/api/orders/all'
   });
 
-  await page.route('**/orders', async (route) => {
-    const request = route.request();
-
-    if (request.method() === 'POST') {
-      expect(request.headers().authorization).toBe('Bearer mock-access-token');
-
-      expect(request.postDataJSON()).toEqual({
-        ingredients: [mockBun._id, mockMain._id, mockBun._id]
-      });
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(mockOrderResponse)
-      });
-
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        success: true,
-        orders: []
-      })
-    });
+  // В одном HAR лежат оба запроса к /orders:
+  // POST создания заказа и GET обновления истории заказов после создания.
+  await page.routeFromHAR(harPath('orders.har'), {
+    url: '**/api/orders'
   });
 
   await page.goto('/');
 
-  await expect(page.getByText(mockUserResponse.user.name)).toBeVisible();
-
-  expect(userRequestCalled).toBe(true);
+  await expect(page.getByText(expectedUserName)).toBeVisible();
 
   await addIngredient(page, mockBun._id);
-
   await addIngredient(page, mockMain._id);
 
-  await page
-    .getByRole('button', {
-      name: 'Оформить заказ'
-    })
-    .click();
+  const orderRequestPromise = page.waitForRequest(
+    (request) =>
+      request.url().endsWith('/api/orders') && request.method() === 'POST'
+  );
+
+  await page.getByRole('button', { name: 'Оформить заказ' }).click();
+
+  const orderRequest = await orderRequestPromise;
+
+  expect(orderRequest.headers().authorization).toBe('Bearer mock-access-token');
+  expect(orderRequest.postDataJSON()).toEqual({
+    ingredients: [mockBun._id, mockMain._id, mockBun._id]
+  });
 
   const modal = page.getByTestId('modal');
 
   await expect(modal).toBeVisible();
-
-  await expect(modal).toContainText(String(mockOrderResponse.order.number));
-
+  await expect(modal).toContainText(String(expectedOrderNumber));
   await expect(modal).toContainText('идентификатор заказа');
 
   const constructor = page.getByTestId('burger-constructor');
 
   await expect(constructor.getByText('Выберите начинку')).toBeVisible();
-
   await expect(constructor.getByText('Выберите булки')).toHaveCount(2);
-
   await expect(constructor).not.toContainText(mockMain.name);
-
   await expect(constructor).not.toContainText(`${mockBun.name} (верх)`);
 
   await page.getByTestId('modal-close').click();
-
   await expect(modal).not.toBeVisible();
 });
